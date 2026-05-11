@@ -264,6 +264,10 @@ static int gvusb2_s_ctrl(struct v4l2_ctrl *ctrl)
 		i2c_smbus_write_byte_data(&dev->i2c_client, 0x12,
 			(ctrl->val & 0x0f) | 0x50);
 		break;
+	case V4L2_CID_GAIN:
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x22,
+			ctrl->val);
+		break;
 	case GVUSB2_CID_VERTICAL_START:
 		gvusb2_write_reg(&dev->gv, 0x0112, ctrl->val);
 		gvusb2_write_reg(&dev->gv, 0x0113, 0);
@@ -556,7 +560,8 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 			//{0x6c, 0x36},
 			//{0x6d, 0xf0},
 			{0x6e, 0x28},
-			{0x06, 0x80},
+			{0x06, 0x90}, // Disable AGC loop
+			{0x22, 0x80}, // Set initial gain to 128
 			{0xff, 0xff}
 	};
 
@@ -582,6 +587,8 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 		V4L2_CID_HUE, 0, 255, 1, 128);
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
 		V4L2_CID_SHARPNESS, 0, 15, 1, 0);
+	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
+		V4L2_CID_GAIN, 0, 255, 1, 128);
 	v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_vertical, NULL);
 	v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_horizontal, NULL);
 
