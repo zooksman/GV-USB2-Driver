@@ -145,10 +145,20 @@ static int gvusb2_vb2_start_streaming(struct vb2_queue *vb2q,
 	/* set cropping */
 	reg_07 = i2c_smbus_read_byte_data(&dev->i2c_client, 0x07);
 	i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, reg_07 & 0x0f);
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x13);
+
+	// For some reason VDELAY (reg 0x08) was set to 13 before? datasheet says 12 is the nominal value for NTSC, so let's fix that.
+	i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x12);
+
+	// this is the recommended value for VACTIVE (reg 0x09)
 	i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0xf4);
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x12);
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd2);
+
+	// For some reason original driver increased HDELAY (0x0a) by 3 and increased HACTIVE (reg 0x0b) by 2.
+	// This was probably to allow the horizontal_start cropping to work with the default value being set to 4.
+	// But according to Rec.601 NTSC standard, the digital active period should begin exactly 16 samples after 0h (0x10)
+	i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x10);
+
+	// Put HACTIVE back to standard value for 720px lines
+	i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd0);
 
 	/* start tw9910 */
 	v4l2_device_call_all(&dev->v4l2_dev, 0, video, s_stream, 1);
@@ -310,7 +320,7 @@ static const struct v4l2_ctrl_config gvusb2_ctrl_horizontal = {
 	.min = 0,
 	.max = 8,
 	.step = 4,
-	.def = 4,
+	.def = 0,
 };
 
 /*****************************************************************************
