@@ -563,6 +563,7 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 			{0x06, 0x90}, // Disable AGC loop
 			{0x22, 0x00}, // Set initial gain to 0
 			{0x23, 0xff}, // disable "white peaking" AGC correction
+			{0x0c, 0xdc}, // set input black level to 7.5 IRE (16-254 range), matching windows driver behavior (0xcc for full-range input)
 			{0xff, 0xff}
 	};
 
