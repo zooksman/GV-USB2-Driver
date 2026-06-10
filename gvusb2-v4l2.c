@@ -561,7 +561,8 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 			//{0x6d, 0xf0},
 			{0x6e, 0x28},
 			{0x06, 0x90}, // Disable AGC loop
-			{0x22, 0x80}, // Set initial gain to 128
+			{0x22, 0x00}, // Set initial gain to 0
+			{0x23, 0xff}, // disable "white peaking" AGC correction
 			{0xff, 0xff}
 	};
 
