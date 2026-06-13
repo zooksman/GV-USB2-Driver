@@ -605,7 +605,7 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
 		V4L2_CID_SHARPNESS, 0, 15, 1, 0);
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
-		V4L2_CID_AUTOGAIN, 0, 1, 1, 0);
+		V4L2_CID_AUTOGAIN, 0, 1, 1, 1);
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
 		V4L2_CID_GAIN, 0, 255, 1, 0);
 	v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_vertical, NULL);
