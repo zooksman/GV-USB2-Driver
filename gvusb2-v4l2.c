@@ -144,11 +144,25 @@ static int gvusb2_vb2_start_streaming(struct vb2_queue *vb2q,
 
 	/* set cropping */
 	reg_07 = i2c_smbus_read_byte_data(&dev->i2c_client, 0x07);
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, reg_07 & 0x0f);
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x13);
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0xf4);
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x12);
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd2);
+
+	// VDELAY should be 0x12 for NTSC and 0x18 for PAL per TW9910 datasheet
+	if (dev->standard == V4L2_STD_PAL_B)
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x18);
+	else
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x12);
+
+	// Set the upper (0x07) and lower (0x09) bits of VACTIVE to the right number of lines per field (244 for NTSC, 288 for PAL)
+	if (dev->standard == V4L2_STD_PAL_B) {
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, reg_07 & 0x1f);
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x20);
+	}
+	else {
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, reg_07 & 0x0f);
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0xf4);
+	}
+	// Set HDELAY and HACTIVE to their standard values
+	i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x10);
+	i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd0);
 
 	/* start tw9910 */
 	v4l2_device_call_all(&dev->v4l2_dev, 0, video, s_stream, 1);
@@ -302,9 +316,9 @@ static const struct v4l2_ctrl_config gvusb2_ctrl_horizontal = {
 	.type = V4L2_CTRL_TYPE_INTEGER,
 	.flags = V4L2_CTRL_FLAG_SLIDER,
 	.min = 0,
-	.max = 8,
+	.max = 4,
 	.step = 4,
-	.def = 4,
+	.def = 0,
 };
 
 /*****************************************************************************
