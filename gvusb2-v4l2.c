@@ -323,6 +323,7 @@ int gvusb2_vb2_setup(struct gvusb2_vid *dev)
 
 static int gvusb2_s_ctrl(struct v4l2_ctrl *ctrl)
 {
+	u8 reg_06;
 	struct gvusb2_vid *dev = container_of(ctrl->handler,
 		struct gvusb2_vid, ctrl_handler);
 
@@ -348,6 +349,16 @@ static int gvusb2_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_SHARPNESS:
 		i2c_smbus_write_byte_data(&dev->i2c_client, 0x12,
 			(ctrl->val & 0x0f) | 0x50);
+		break;
+	case V4L2_CID_GAIN:
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x22,
+			ctrl->val);
+		break;
+	case V4L2_CID_AUTOGAIN:
+		// read the previous value and only overwrite bit 4
+		reg_06 = i2c_smbus_read_byte_data(&dev->i2c_client, 0x06);
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x06,
+			(reg_06 & 0xEF) | ((ctrl->val << 4) ^ 0x10));
 		break;
 	case GVUSB2_CID_VERTICAL_START:
 		gvusb2_write_reg(&dev->gv, 0x0112, ctrl->val);
@@ -685,6 +696,7 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 			//{0x6c, 0x36},
 			//{0x6d, 0xf0},
 			{0x6e, 0x28},
+			{0x22, 0x00}, // Set initial AGC gain to 0
 			{0x23, 0xff}, // disable "white peaking" AGC correction
 			{0x06, 0x80},
 			{0xff, 0xff}
@@ -713,10 +725,13 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 		V4L2_CID_HUE, 0, 255, 1, 128);
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
 		V4L2_CID_SHARPNESS, 0, 15, 1, 0);
+	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
+		V4L2_CID_AUTOGAIN, 0, 1, 1, 1);
+	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
+		V4L2_CID_GAIN, 0, 255, 1, 0);
 	dev->vertical_start = v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_vertical, NULL);
 	dev->horizontal_start = v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_horizontal, NULL);
 	v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_vbi, NULL);
-
 
 	if (dev->ctrl_handler.error) {
 		ret = dev->ctrl_handler.error;
