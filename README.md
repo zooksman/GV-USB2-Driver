@@ -12,13 +12,17 @@ Usage
 ====================
 
 To set the input on the GVUSB2: 
+
 ```sudo v4l2-ctl --set-input 1``` for S-video input
+
 ```sudo v4l2-ctl --set-input 0``` for composite input
 
 The default region is NTSC. To set the region to PAL, use the following command:
+
 ```sudo v4l2-ctl -s pal```
 
 To monitor video from the GVUSB2 without capturing:
+
 ```ffplay  /dev/video0 -vf setdar=4/3,setfield=tff```
 
 Here is the command I use to capture lossless FFV1-encoded video and audio from the device to an MKV file:
@@ -38,16 +42,23 @@ Setting Device Controls
 ====================
 
 Brightness (default 128):
+
 ```sudo v4l2-ctl -c brightness=X```
 Contrast (default 105):
+
 ```sudo v4l2-ctl -c contrast=X```
 Saturation (default 128):
+
 ```sudo v4l2-ctl -c saturation=X```
 Hue (NTSC only, default 128):
+
 ```sudo v4l2-ctl -c hue=X```
 Sharpness (Range 0-16, default 0):
+
 ```sudo v4l2-ctl -c sharpness=X```
 Vertical Start (increasing this value shifts the image upward, max 4, default 2 for NTSC and 1 for PAL):
+
 ```sudo v4l2-ctl -c vertical_start=X```
 Horizontal Start (increasing this value shifts the image leftward, max 4, default 0):
+
 ```sudo v4l2-ctl -c horizontal_start=X```
