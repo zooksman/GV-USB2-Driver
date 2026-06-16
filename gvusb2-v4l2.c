@@ -311,7 +311,7 @@ static const struct v4l2_ctrl_config gvusb2_ctrl_vertical = {
 	.min = 0,
 	.max = 4,
 	.step = 1,
-	.def = 0,
+	.def = 2,
 };
 
 static const struct v4l2_ctrl_config gvusb2_ctrl_horizontal = {
@@ -322,7 +322,7 @@ static const struct v4l2_ctrl_config gvusb2_ctrl_horizontal = {
 	.flags = V4L2_CTRL_FLAG_SLIDER,
 	.min = 0,
 	.max = 4,
-	.step = 2,
+	.step = 1,
 	.def = 0,
 };
 
@@ -430,6 +430,8 @@ static int gvusb2_vidioc_s_std(struct file *file, void *priv, v4l2_std_id std)
 {
 	struct gvusb2_vid *dev = video_drvdata(file);
 	struct vb2_queue *vb2q = &dev->vb2q;
+	struct v4l2_ctrl *vertical_start = v4l2_ctrl_find(&dev->ctrl_handler, GVUSB2_CID_VERTICAL_START);
+	struct v4l2_ctrl *horizontal_start = v4l2_ctrl_find(&dev->ctrl_handler, GVUSB2_CID_HORIZONTAL_START);
 
 	if (std == dev->standard)
 		return 0;
@@ -438,15 +440,15 @@ static int gvusb2_vidioc_s_std(struct file *file, void *priv, v4l2_std_id std)
 		return -EBUSY;
 
 	dev->standard = std;
-	// Set up STK1150 cropping according to standard
+	// The code to set up STK1150 cropping per standard is inside the v4l2 control setting functions
+	// Also resets V4L2 control values to keep them in sync with the hardware
 	if (dev->standard & V4L2_STD_625_50) {
-		gvusb2_write_reg(&dev->gv, 0x0116, 0x20);
-		gvusb2_write_reg(&dev->gv, 0x0117, 0x01);
+		v4l2_ctrl_s_ctrl(vertical_start, 1);
+		v4l2_ctrl_s_ctrl(horizontal_start, 0);
 	} else {
-		gvusb2_write_reg(&dev->gv, 0x0116, 0xf0);
-		gvusb2_write_reg(&dev->gv, 0x0117, 0);
+		v4l2_ctrl_s_ctrl(vertical_start, 2);
+		v4l2_ctrl_s_ctrl(horizontal_start, 0);
 	}
-
 	v4l2_device_call_all(&dev->v4l2_dev, 0, video, s_std, std);
 
 	return 0;
@@ -682,7 +684,7 @@ int gvusb2_video_register(struct gvusb2_vid *dev)
 
 	/* set standard for device */
 	dev->standard = V4L2_STD_NTSC_M;
-	// Reset all controls again after setting default standard to make sure cropping values get set
+	// Reset all controls again after setting standard to make sure cropping values get set
 	v4l2_ctrl_handler_setup(&dev->ctrl_handler);
 
 	/* set standard for sub-devices */
