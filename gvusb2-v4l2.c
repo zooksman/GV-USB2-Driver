@@ -602,7 +602,7 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
 		V4L2_CID_BRIGHTNESS, 0, 255, 1, 128);
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
-		V4L2_CID_CONTRAST, 0, 255, 1, 128);
+		V4L2_CID_CONTRAST, 0, 255, 1, 105);
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
 		V4L2_CID_SATURATION, 0, 255, 1, 128);
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
