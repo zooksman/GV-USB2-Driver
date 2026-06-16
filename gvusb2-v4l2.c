@@ -34,20 +34,17 @@ struct i2c_regval {
 
 void get_resolution(struct gvusb2_vid *dev, int *width, int *height)
 {
-	switch (dev->standard) {
-	default:
-	case V4L2_STD_NTSC_M:
-		if (width != NULL)
-			*width = 720;
-		if (height != NULL)
-			*height = 480;
-		break;
-	case V4L2_STD_PAL_B:
+	if (dev->standard & V4L2_STD_625_50) {
+		// V4L2_STD_625_50 is a bitmask for all 625 line 50hz standards
 		if (width != NULL)
 			*width = 720;
 		if (height != NULL)
 			*height = 576;
-		break;
+	} else {
+		if (width != NULL)
+			*width = 720;
+		if (height != NULL)
+			*height = 480;
 	}
 }
 
@@ -143,25 +140,27 @@ static int gvusb2_vb2_start_streaming(struct vb2_queue *vb2q,
 	dev->sequence = 0;
 
 	/* set cropping */
-	reg_07 = i2c_smbus_read_byte_data(&dev->i2c_client, 0x07);
 
 	// VDELAY should be 0x12 for NTSC and 0x18 for PAL per TW9910 datasheet
-	if (dev->standard == V4L2_STD_PAL_B)
-		i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x18);
-	else
-		i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x12);
-
 	// Set the upper (0x07) and lower (0x09) bits of VACTIVE to the right number of lines per field (244 for NTSC, 288 for PAL)
-	if (dev->standard == V4L2_STD_PAL_B) {
-		i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, reg_07 & 0x1f);
+	if (dev->standard & V4L2_STD_625_50) {
+		// VDELAY
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x18);
+		// VACTIVE (576)
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, 0x12);
 		i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x20);
-	}
-	else {
-		i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, reg_07 & 0x0f);
+		// HDELAY
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x0C);
+	} else {
+		// VDELAY
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x12);
+		// VACTIVE (488)
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, 0x02);
 		i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0xf4);
+		// HDELAY
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x10);
 	}
-	// Set HDELAY and HACTIVE to their standard values
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x10);
+	// HACTIVE (720)
 	i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd0);
 
 	/* start tw9910 */
@@ -279,8 +278,14 @@ static int gvusb2_s_ctrl(struct v4l2_ctrl *ctrl)
 	case GVUSB2_CID_VERTICAL_START:
 		gvusb2_write_reg(&dev->gv, 0x0112, ctrl->val);
 		gvusb2_write_reg(&dev->gv, 0x0113, 0);
-		gvusb2_write_reg(&dev->gv, 0x0116, ctrl->val + 0xf0);
-		gvusb2_write_reg(&dev->gv, 0x0117, 0);
+		// Let's set the number of active lines correctly for NTSC (480) vs PAL (576)
+		if (dev->standard & V4L2_STD_625_50) {
+			gvusb2_write_reg(&dev->gv, 0x0116, ctrl->val + 0x20);
+			gvusb2_write_reg(&dev->gv, 0x0117, 0x01);
+		} else {
+			gvusb2_write_reg(&dev->gv, 0x0116, ctrl->val + 0xf0);
+			gvusb2_write_reg(&dev->gv, 0x0117, 0);
+		}
 		break;
 	case GVUSB2_CID_HORIZONTAL_START:
 		gvusb2_write_reg(&dev->gv, 0x0110, ctrl->val);
@@ -303,10 +308,10 @@ static const struct v4l2_ctrl_config gvusb2_ctrl_vertical = {
 	.name = "Vertical Start",
 	.type = V4L2_CTRL_TYPE_INTEGER,
 	.flags = V4L2_CTRL_FLAG_SLIDER,
-	.min = 1,
+	.min = 0,
 	.max = 4,
 	.step = 1,
-	.def = 2,
+	.def = 0,
 };
 
 static const struct v4l2_ctrl_config gvusb2_ctrl_horizontal = {
@@ -317,7 +322,7 @@ static const struct v4l2_ctrl_config gvusb2_ctrl_horizontal = {
 	.flags = V4L2_CTRL_FLAG_SLIDER,
 	.min = 0,
 	.max = 4,
-	.step = 4,
+	.step = 2,
 	.def = 0,
 };
 
@@ -432,8 +437,16 @@ static int gvusb2_vidioc_s_std(struct file *file, void *priv, v4l2_std_id std)
 	if (vb2_is_busy(vb2q))
 		return -EBUSY;
 
-	/* TODO: set standard based off of this */
 	dev->standard = std;
+	// Set up STK1150 cropping according to standard
+	if (dev->standard & V4L2_STD_625_50) {
+		gvusb2_write_reg(&dev->gv, 0x0116, 0x20);
+		gvusb2_write_reg(&dev->gv, 0x0117, 0x01);
+	} else {
+		gvusb2_write_reg(&dev->gv, 0x0116, 0xf0);
+		gvusb2_write_reg(&dev->gv, 0x0117, 0);
+	}
+
 	v4l2_device_call_all(&dev->v4l2_dev, 0, video, s_std, std);
 
 	return 0;
@@ -669,6 +682,8 @@ int gvusb2_video_register(struct gvusb2_vid *dev)
 
 	/* set standard for device */
 	dev->standard = V4L2_STD_NTSC_M;
+	// Reset all controls again after setting default standard to make sure cropping values get set
+	v4l2_ctrl_handler_setup(&dev->ctrl_handler);
 
 	/* set standard for sub-devices */
 	v4l2_device_call_all(&dev->v4l2_dev, 0, video, s_std,
