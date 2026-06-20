@@ -26,7 +26,8 @@ To monitor video from the GVUSB2 without capturing:
 ```ffplay  /dev/video0 -vf setdar=4/3,setfield=tff```
 
 Here is the command I use to capture lossless FFV1-encoded video and audio from the device to an MKV file:
-```ffmpeg \
+```
+ffmpeg \
     -f v4l2 -framerate 29.97 -video_size 720x480 -rtbufsize 2G -thread_queue_size 1024 -i /dev/video0  \
     -f alsa -ac 2 -rtbufsize 500M -thread_queue_size 512 -i hw:CARD=gvusb2,DEV=0 \
     -c:v ffv1 -level 3 -threads 2 -coder 1 -context 1 -slices 4 -slicecrc 1 \
