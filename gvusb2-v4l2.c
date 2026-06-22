@@ -44,7 +44,7 @@ void get_resolution(struct gvusb2_vid *dev, int *width, int *height)
 		if (width != NULL)
 			*width = 720;
 		if (height != NULL)
-			*height = 480;
+			*height = 516;
 	}
 }
 
@@ -153,10 +153,10 @@ static int gvusb2_vb2_start_streaming(struct vb2_queue *vb2q,
 		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x0C);
 	} else {
 		// VDELAY
-		i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x12);
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x02);
 		// VACTIVE (488)
-		i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, 0x02);
-		i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0xf4);
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, 0x12);
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x06);
 		// HDELAY
 		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x10);
 	}
@@ -276,15 +276,15 @@ static int gvusb2_s_ctrl(struct v4l2_ctrl *ctrl)
 			(ctrl->val & 0x0f) | 0x50);
 		break;
 	case GVUSB2_CID_VERTICAL_START:
-		gvusb2_write_reg(&dev->gv, 0x0112, ctrl->val);
+		gvusb2_write_reg(&dev->gv, 0x0112, 2);
 		gvusb2_write_reg(&dev->gv, 0x0113, 0);
 		// Let's set the number of active lines correctly for NTSC (480) vs PAL (576)
 		if (dev->standard & V4L2_STD_625_50) {
 			gvusb2_write_reg(&dev->gv, 0x0116, ctrl->val + 0x20);
 			gvusb2_write_reg(&dev->gv, 0x0117, 0x01);
 		} else {
-			gvusb2_write_reg(&dev->gv, 0x0116, ctrl->val + 0xf0);
-			gvusb2_write_reg(&dev->gv, 0x0117, 0);
+			gvusb2_write_reg(&dev->gv, 0x0116, ctrl->val + 0x04);
+			gvusb2_write_reg(&dev->gv, 0x0117, 0x01);
 		}
 		break;
 	case GVUSB2_CID_HORIZONTAL_START:
@@ -311,7 +311,7 @@ static const struct v4l2_ctrl_config gvusb2_ctrl_vertical = {
 	.min = 0,
 	.max = 4,
 	.step = 1,
-	.def = 2,
+	.def = 0,
 };
 
 static const struct v4l2_ctrl_config gvusb2_ctrl_horizontal = {
@@ -573,6 +573,7 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 			//{0x08, 0x12},
 			//{0x09, 0xf4},
 			{0x19, 0xde},
+			//{0x19, 0xd6},
 			{0x1a, 0x0f},
 			{0x1b, 0x00},
 			//{0x1c, 0x0f},
@@ -584,6 +585,7 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 			//{0x6d, 0xf0},
 			{0x6e, 0x28},
 			{0x06, 0x80},
+			//{0x55, 0x10}, //NTSC656
 			{0xff, 0xff}
 	};
 
