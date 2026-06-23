@@ -44,7 +44,7 @@ void get_resolution(struct gvusb2_vid *dev, int *width, int *height)
 		if (width != NULL)
 			*width = 720;
 		if (height != NULL)
-			*height = 516;
+			*height = 520;
 	}
 }
 
@@ -276,7 +276,7 @@ static int gvusb2_s_ctrl(struct v4l2_ctrl *ctrl)
 			(ctrl->val & 0x0f) | 0x50);
 		break;
 	case GVUSB2_CID_VERTICAL_START:
-		gvusb2_write_reg(&dev->gv, 0x0112, 2);
+		gvusb2_write_reg(&dev->gv, 0x0112, 0);
 		gvusb2_write_reg(&dev->gv, 0x0113, 0);
 		// Let's set the number of active lines correctly for NTSC (480) vs PAL (576)
 		if (dev->standard & V4L2_STD_625_50) {
@@ -442,13 +442,13 @@ static int gvusb2_vidioc_s_std(struct file *file, void *priv, v4l2_std_id std)
 	dev->standard = std;
 	// The code to set up STK1150 cropping per standard is inside the v4l2 control setting functions
 	// Also resets V4L2 control values to keep them in sync with the hardware
-	if (dev->standard & V4L2_STD_625_50) {
-		v4l2_ctrl_s_ctrl(vertical_start, 1);
-		v4l2_ctrl_s_ctrl(horizontal_start, 0);
-	} else {
-		v4l2_ctrl_s_ctrl(vertical_start, 2);
-		v4l2_ctrl_s_ctrl(horizontal_start, 0);
-	}
+	// if (dev->standard & V4L2_STD_625_50) {
+	// 	v4l2_ctrl_s_ctrl(vertical_start, 1);
+	// 	v4l2_ctrl_s_ctrl(horizontal_start, 0);
+	// } else {
+	// 	v4l2_ctrl_s_ctrl(vertical_start, 2);
+	// 	v4l2_ctrl_s_ctrl(horizontal_start, 0);
+	// }
 	v4l2_device_call_all(&dev->v4l2_dev, 0, video, s_std, std);
 
 	return 0;
@@ -572,8 +572,8 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 			{0x05, 0x01},
 			//{0x08, 0x12},
 			//{0x09, 0xf4},
-			{0x19, 0xde},
-			//{0x19, 0xd6},
+			{0x19, 0x5e},
+			//{0x19, 0xc6},
 			{0x1a, 0x0f},
 			{0x1b, 0x00},
 			//{0x1c, 0x0f},
@@ -586,6 +586,8 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 			{0x6e, 0x28},
 			{0x06, 0x80},
 			//{0x55, 0x10}, //NTSC656
+			//{0x6F, 0x00}, //VBI delay
+			{0x29, 0x02}, //Vsync Delay
 			{0xff, 0xff}
 	};
 
