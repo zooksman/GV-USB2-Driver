@@ -77,6 +77,8 @@ void set_tw9910_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi) {
 			i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x21);
 		}
 	} else {
+		//NTSC656
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x55, 0x10);
 		// HACTIVE (720) + 2 so the user can do some horizontal shifting if they want
 		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd2);
 		// HDELAY (16 samples according to ITU-R 656)
@@ -125,7 +127,7 @@ void set_stk1150_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi, int 
 			gvusb2_write_reg(&dev->gv, 0x0116, vertical_start + 0x20);
 			gvusb2_write_reg(&dev->gv, 0x0117, 0x01);
 		} else {
-			gvusb2_write_reg(&dev->gv, 0x0116, vertical_start + 0xf0);
+			gvusb2_write_reg(&dev->gv, 0x0116, vertical_start + 0xf3);
 			gvusb2_write_reg(&dev->gv, 0x0117, 0x00);
 		}
 	}
@@ -348,7 +350,7 @@ static int gvusb2_s_ctrl(struct v4l2_ctrl *ctrl)
 			gvusb2_write_reg(&dev->gv, 0x0116, ctrl->val + 0x20);
 			gvusb2_write_reg(&dev->gv, 0x0117, 0x01);
 		} else {
-			gvusb2_write_reg(&dev->gv, 0x0116, ctrl->val + 0xf0);
+			gvusb2_write_reg(&dev->gv, 0x0116, ctrl->val + 0xf3);
 			gvusb2_write_reg(&dev->gv, 0x0117, 0x00);
 		}
 		break;
@@ -534,7 +536,7 @@ static int gvusb2_vidioc_s_std(struct file *file, void *priv, v4l2_std_id std)
 
 	// And now we need to lock vertical start max if PAL
 	if (std & V4L2_STD_625_50)
-		v4l2_ctrl_modify_range(vertical_start, 0, 2, 1, 2);
+		v4l2_ctrl_modify_range(dev->vertical_start, 0, 2, 1, 2);
 
 	set_tw9910_cropping(dev, std, v4l2_ctrl_g_ctrl(dev->vbi_capture));
 	set_stk1150_cropping(dev, std, v4l2_ctrl_g_ctrl(dev->vbi_capture), v4l2_ctrl_g_ctrl(dev->horizontal_start), v4l2_ctrl_g_ctrl(dev->vertical_start));
