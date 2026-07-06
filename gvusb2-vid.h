@@ -66,6 +66,7 @@ struct gvusb2_vid {
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_ctrl *horizontal_start;
 	struct v4l2_ctrl *vertical_start;
+	struct v4l2_ctrl *vbi_capture;
 	struct mutex v4l2_lock;
 	unsigned int input_num;
 	unsigned int sequence;

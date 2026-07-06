@@ -35,12 +35,10 @@ struct i2c_regval {
 
 void get_resolution(struct gvusb2_vid *dev, int *width, int *height)
 {
-	struct v4l2_ctrl *vbi_capture = v4l2_ctrl_find(&dev->ctrl_handler, GVUSB2_CID_VBI_CAPTURE);
-
 	if (width != NULL)
 		*width = GVUSB2_STANDARD_WIDTH;
 	if (height != NULL) {
-		if (v4l2_ctrl_g_ctrl(vbi_capture) > 0) {
+		if (v4l2_ctrl_g_ctrl(dev->vbi_capture) > 0) {
 			if (dev->standard & V4L2_STD_625_50)
 				*height = GVUSB2_PAL_VBI_HEIGHT;
 			else
@@ -227,7 +225,6 @@ static int gvusb2_vb2_start_streaming(struct vb2_queue *vb2q,
 {
 	int ret;
 	struct gvusb2_vid *dev = vb2_get_drv_priv(vb2q);
-	struct v4l2_ctrl *vbi_capture = v4l2_ctrl_find(&dev->ctrl_handler, GVUSB2_CID_VBI_CAPTURE);
 
 	/* start mutex */
 	if (mutex_lock_interruptible(&dev->v4l2_lock))
@@ -237,7 +234,7 @@ static int gvusb2_vb2_start_streaming(struct vb2_queue *vb2q,
 	dev->sequence = 0;
 
 	// Set TW9910 cropping depending on whether VBI capture is enabled
-	set_tw9910_cropping(dev, dev->standard, v4l2_ctrl_g_ctrl(vbi_capture));
+	set_tw9910_cropping(dev, dev->standard, v4l2_ctrl_g_ctrl(dev->vbi_capture));
 
 	/* start tw9910 */
 	v4l2_device_call_all(&dev->v4l2_dev, 0, video, s_stream, 1);
@@ -538,9 +535,6 @@ static int gvusb2_vidioc_s_std(struct file *file, void *priv, v4l2_std_id std)
 {
 	struct gvusb2_vid *dev = video_drvdata(file);
 	struct vb2_queue *vb2q = &dev->vb2q;
-	struct v4l2_ctrl *vertical_start = v4l2_ctrl_find(&dev->ctrl_handler, GVUSB2_CID_VERTICAL_START);
-	struct v4l2_ctrl *horizontal_start = v4l2_ctrl_find(&dev->ctrl_handler, GVUSB2_CID_HORIZONTAL_START);
-	struct v4l2_ctrl *vbi_capture = v4l2_ctrl_find(&dev->ctrl_handler, GVUSB2_CID_VBI_CAPTURE);
 
 	if (std == dev->standard)
 		return 0;
@@ -550,17 +544,13 @@ static int gvusb2_vidioc_s_std(struct file *file, void *priv, v4l2_std_id std)
 
 	dev->standard = std;
 
-	//Set up cropping on both TW9910 and STK1150 chips based on standard
-	//Also resets V4L2 control values to keep them in sync with the hardware
-	//And reset vertical start because values above 2 dont work on PAL
-	//v4l2_ctrl_s_ctrl(vertical_start, 2);
-
-	// And now we need to lock vertical start max if PAL
+	// Set up cropping on both TW9910 and STK1150 chips based on standard
+	// We need to lock vertical start max if PAL
 	if (std & V4L2_STD_625_50)
-		v4l2_ctrl_modify_range(vertical_start, 0, 2, 1, 2);
+		v4l2_ctrl_modify_range(dev->vertical_start, 0, 2, 1, 2);
 
-	set_tw9910_cropping(dev, std, v4l2_ctrl_g_ctrl(vbi_capture));
-	set_stk1150_cropping(dev, std, v4l2_ctrl_g_ctrl(vbi_capture), v4l2_ctrl_g_ctrl(horizontal_start), v4l2_ctrl_g_ctrl(vertical_start));
+	set_tw9910_cropping(dev, std, v4l2_ctrl_g_ctrl(dev->vbi_capture));
+	set_stk1150_cropping(dev, std, v4l2_ctrl_g_ctrl(dev->vbi_capture), v4l2_ctrl_g_ctrl(dev->horizontal_start), v4l2_ctrl_g_ctrl(dev->vertical_start));
 
 	v4l2_device_call_all(&dev->v4l2_dev, 0, video, s_std, std);
 
@@ -731,7 +721,7 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 		V4L2_CID_GAIN, 0, 255, 1, 0);
 	dev->vertical_start = v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_vertical, NULL);
 	dev->horizontal_start = v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_horizontal, NULL);
-	v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_vbi, NULL);
+	dev->vbi_capture = v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_vbi, NULL);
 
 	if (dev->ctrl_handler.error) {
 		ret = dev->ctrl_handler.error;
