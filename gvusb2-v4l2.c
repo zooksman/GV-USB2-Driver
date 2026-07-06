@@ -57,6 +57,8 @@ void get_resolution(struct gvusb2_vid *dev, int *width, int *height)
 
 void set_tw9910_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi) {
 	if (std & V4L2_STD_625_50) {
+		// Set input black level to 0 IRE for PAL
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0c, 0xcc);
 		// HACTIVE (720) + 2 so the user can do some horizontal shifting if they want
 		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd3);
 		// HDELAY
@@ -79,6 +81,8 @@ void set_tw9910_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi) {
 			i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x21);
 		}
 	} else {
+		// Set input black level to 7.5 IRE for NTSC
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0c, 0xdc);
 		// HACTIVE (720) + 2 so the user can do some horizontal shifting if they want
 		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd2);
 		// HDELAY (16 samples according to ITU-R 656)
