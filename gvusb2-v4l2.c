@@ -57,10 +57,10 @@ void set_tw9910_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi) {
 	if (std & V4L2_STD_625_50) {
 		// Set input black level to 0 IRE for PAL
 		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0c, 0xcc);
-		// HACTIVE (720) + 2 so the user can do some horizontal shifting if they want
-		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd3);
+		// HACTIVE (720) + 4 so the user can do some horizontal shifting if they want
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd4);
 		// HDELAY
-		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x0C);
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x0d);
 		if (vbi > 0) {
 			dev_warn(&dev->intf->dev,
 					 "setting TW9910 PAL vbi cropping.\n");
@@ -81,8 +81,8 @@ void set_tw9910_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi) {
 	} else {
 		// Set input black level to 7.5 IRE for NTSC
 		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0c, 0xdc);
-		// HACTIVE (720) + 2 so the user can do some horizontal shifting if they want
-		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd2);
+		// HACTIVE (720) + 4 so the user can do some horizontal shifting if they want
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd4);
 		// HDELAY (16 samples according to ITU-R 656)
 		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x10);
 		if (vbi > 0) {
