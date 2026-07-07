@@ -22,6 +22,7 @@
 #include <media/i2c/tw9910.h>
 
 #include "gvusb2-vid.h"
+#include "gvusb2.h"
 
 /*****************************************************************************
  * Helper functions
@@ -34,21 +35,112 @@ struct i2c_regval {
 
 void get_resolution(struct gvusb2_vid *dev, int *width, int *height)
 {
-	switch (dev->standard) {
-	default:
-	case V4L2_STD_NTSC_M:
-		if (width != NULL)
-			*width = 720;
-		if (height != NULL)
-			*height = 480;
-		break;
-	case V4L2_STD_PAL_B:
-		if (width != NULL)
-			*width = 720;
-		if (height != NULL)
-			*height = 576;
-		break;
+	if (width != NULL)
+		*width = GVUSB2_STANDARD_WIDTH;
+	if (height != NULL) {
+		if (v4l2_ctrl_g_ctrl(dev->vbi_capture) > 0) {
+			if (dev->standard & V4L2_STD_625_50)
+				*height = GVUSB2_PAL_VBI_HEIGHT;
+			else
+				*height = GVUSB2_NTSC_VBI_HEIGHT;
+		} else {
+			// V4L2_STD_625_50 is a bitmask for all 625-line 50hz standards
+			if (dev->standard & V4L2_STD_625_50)
+				*height = GVUSB2_PAL_STANDARD_HEIGHT;
+			else
+				*height = GVUSB2_NTSC_STANDARD_HEIGHT;
+		}
 	}
+}
+
+void set_tw9910_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi) {
+	if (std & V4L2_STD_625_50) {
+		// Set input black level to 0 IRE for PAL
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0c, 0xcc);
+		// HACTIVE (720) + 4 so the user can do some horizontal shifting if they want
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd4);
+		// HDELAY
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x0d);
+		if (vbi > 0) {
+			dev_warn(&dev->intf->dev,
+					 "setting TW9910 PAL vbi cropping.\n");
+			// VDELAY
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x02);
+			// VACTIVE (624)
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, 0x12);
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x37);
+		} else {
+			dev_warn(&dev->intf->dev,
+					 "setting TW9910 PAL normal cropping.\n");
+			// VDELAY
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x17);
+			// VACTIVE (576)
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, 0x12);
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x22);
+		}
+	} else {
+		// Set input black level to 7.5 IRE for NTSC
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0c, 0xdc);
+		// HACTIVE (720) + 4 so the user can do some horizontal shifting if they want
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd4);
+		// HDELAY (16 samples according to ITU-R 656)
+		i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x10);
+		if (vbi > 0) {
+			dev_warn(&dev->intf->dev,
+					 "setting TW9910 ntsc vbi cropping.\n");
+			// VDELAY
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x02);
+			// VACTIVE (524)
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, 0x12);
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x05);
+
+			// NTSC656 bit which needs to be enabled for vbi to work
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x55, 0x10);
+		} else {
+			dev_warn(&dev->intf->dev,
+					 "setting TW9910 ntsc normal cropping.\n");
+			// VDELAY
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x13);
+			// VACTIVE (488)
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, 0x02);
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0xf4);
+		}
+	}
+
+
+}
+
+
+void set_stk1150_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi, int horizontal_start, int vertical_start) {
+	if (vbi > 0) {
+		// VBI option is set, so we need to adjust cropping to include the area above active video
+		// 0x0112 = vertical starting position, 0x0117 and 0x0116 = number of lines per field
+		gvusb2_write_reg(&dev->gv, 0x0112, 3);
+		gvusb2_write_reg(&dev->gv, 0x0113, 0);
+		gvusb2_write_reg(&dev->gv, 0x0117, 0x01);
+		if (std & V4L2_STD_625_50) {
+			gvusb2_write_reg(&dev->gv, 0x0116, 0x37);
+		} else {
+			gvusb2_write_reg(&dev->gv, 0x0116, 0x05);
+		}
+	} else {
+		// Use the horizontal and vertical V4L2 controls when vbi is not enabled
+		gvusb2_write_reg(&dev->gv, 0x0112, vertical_start);
+		gvusb2_write_reg(&dev->gv, 0x0113, 0);
+		if (std & V4L2_STD_625_50) {
+			gvusb2_write_reg(&dev->gv, 0x0116, vertical_start + 0x20);
+			gvusb2_write_reg(&dev->gv, 0x0117, 0x01);
+		} else {
+			gvusb2_write_reg(&dev->gv, 0x0116, vertical_start + 0xf0);
+			gvusb2_write_reg(&dev->gv, 0x0117, 0x00);
+		}
+	}
+
+	// Horizontal is always the same whether NTSC or PAL, whether VBI or not
+	gvusb2_write_reg(&dev->gv, 0x0110, horizontal_start);
+	gvusb2_write_reg(&dev->gv, 0x0111, 0);
+	gvusb2_write_reg(&dev->gv, 0x0114, horizontal_start + 0xa0);
+	gvusb2_write_reg(&dev->gv, 0x0115, 0x05);
 }
 
 void gvusb2_vid_clear_queue(struct gvusb2_vid *dev)
@@ -133,7 +225,6 @@ static int gvusb2_vb2_start_streaming(struct vb2_queue *vb2q,
 {
 	int ret;
 	struct gvusb2_vid *dev = vb2_get_drv_priv(vb2q);
-	s32 reg_07;
 
 	/* start mutex */
 	if (mutex_lock_interruptible(&dev->v4l2_lock))
@@ -142,31 +233,14 @@ static int gvusb2_vb2_start_streaming(struct vb2_queue *vb2q,
 	/* set seq to 0 */
 	dev->sequence = 0;
 
-	/* set cropping */
-	reg_07 = i2c_smbus_read_byte_data(&dev->i2c_client, 0x07);
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, reg_07 & 0x0f);
-
-	// For some reason VDELAY (reg 0x08) was set to 13 before? datasheet says 12 is the nominal value for NTSC, so let's fix that.
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x12);
-
-	// this is the recommended value for VACTIVE (reg 0x09)
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0xf4);
-
-	// For some reason original driver increased HDELAY (0x0a) by 3 and increased HACTIVE (reg 0x0b) by 2.
-	// This was probably to allow the horizontal_start cropping to work with the default value being set to 4.
-	// But according to Rec.601 NTSC standard, the digital active period should begin exactly 16 samples after 0h (0x10)
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x0a, 0x10);
-
-	// Put HACTIVE back to standard value for 720px lines
-	i2c_smbus_write_byte_data(&dev->i2c_client, 0x0b, 0xd0);
+	// Set TW9910 cropping depending on whether VBI capture is enabled
+	set_tw9910_cropping(dev, dev->standard, v4l2_ctrl_g_ctrl(dev->vbi_capture));
 
 	/* start tw9910 */
 	v4l2_device_call_all(&dev->v4l2_dev, 0, video, s_stream, 1);
 
 	/* start gvusb2 */
 	gvusb2_write_reg(&dev->gv, 0x0100, 0xb3);
-	/* probably don't need to set no VBI */
-	gvusb2_write_reg(&dev->gv, 0x0103, 0x00);
 
 	/* submit urbs */
 	ret = gvusb2_vid_submit_urbs(dev);
@@ -286,14 +360,31 @@ static int gvusb2_s_ctrl(struct v4l2_ctrl *ctrl)
 	case GVUSB2_CID_VERTICAL_START:
 		gvusb2_write_reg(&dev->gv, 0x0112, ctrl->val);
 		gvusb2_write_reg(&dev->gv, 0x0113, 0);
-		gvusb2_write_reg(&dev->gv, 0x0116, ctrl->val + 0xf0);
-		gvusb2_write_reg(&dev->gv, 0x0117, 0);
+		// Let's set the number of active lines correctly for NTSC (480) vs PAL (576)
+		if (dev->standard & V4L2_STD_625_50) {
+			gvusb2_write_reg(&dev->gv, 0x0116, ctrl->val + 0x20);
+			gvusb2_write_reg(&dev->gv, 0x0117, 0x01);
+		} else {
+			gvusb2_write_reg(&dev->gv, 0x0116, ctrl->val + 0xf0);
+			gvusb2_write_reg(&dev->gv, 0x0117, 0x00);
+		}
 		break;
 	case GVUSB2_CID_HORIZONTAL_START:
 		gvusb2_write_reg(&dev->gv, 0x0110, ctrl->val);
 		gvusb2_write_reg(&dev->gv, 0x0111, 0);
 		gvusb2_write_reg(&dev->gv, 0x0114, ctrl->val + 0xa0);
 		gvusb2_write_reg(&dev->gv, 0x0115, 0x05);
+		break;
+	case GVUSB2_CID_VBI_CAPTURE:
+		if (ctrl->val > 0) {
+			// Disable vertical positioning controls when capturing VBI
+			dev->vertical_start->flags |= V4L2_CTRL_FLAG_GRABBED;
+		} else {
+			// Re-enable cropping controls
+			dev->vertical_start->flags &= ~(V4L2_CTRL_FLAG_GRABBED);
+		}
+		// Instead of trying to put the logic here, I moved the cropping into a helper function
+		set_stk1150_cropping(dev, dev->standard, ctrl->val, dev->horizontal_start->val, dev->vertical_start->val);
 		break;
 	}
 
@@ -324,7 +415,19 @@ static const struct v4l2_ctrl_config gvusb2_ctrl_horizontal = {
 	.flags = V4L2_CTRL_FLAG_SLIDER,
 	.min = 0,
 	.max = 8,
-	.step = 4,
+	.step = 1,
+	.def = 4,
+};
+
+static const struct v4l2_ctrl_config gvusb2_ctrl_vbi = {
+	.ops = &gvusb2_ctrl_ops,
+	.id = GVUSB2_CID_VBI_CAPTURE,
+	.name = "VBI Capture",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.flags = V4L2_CTRL_FLAG_SLIDER,
+	.min = 0,
+	.max = 1,
+	.step = 1,
 	.def = 0,
 };
 
@@ -439,8 +542,18 @@ static int gvusb2_vidioc_s_std(struct file *file, void *priv, v4l2_std_id std)
 	if (vb2_is_busy(vb2q))
 		return -EBUSY;
 
-	/* TODO: set standard based off of this */
 	dev->standard = std;
+
+	// Set up cropping on both TW9910 and STK1150 chips based on standard
+	// We need to lock vertical start max to 3 if PAL
+	if (std & V4L2_STD_625_50)
+		v4l2_ctrl_modify_range(dev->vertical_start, 1, 3, 1, 2);
+	else
+		v4l2_ctrl_modify_range(dev->vertical_start, 1, 4, 1, 2);
+
+	set_tw9910_cropping(dev, std, v4l2_ctrl_g_ctrl(dev->vbi_capture));
+	set_stk1150_cropping(dev, std, v4l2_ctrl_g_ctrl(dev->vbi_capture), v4l2_ctrl_g_ctrl(dev->horizontal_start), v4l2_ctrl_g_ctrl(dev->vertical_start));
+
 	v4l2_device_call_all(&dev->v4l2_dev, 0, video, s_std, std);
 
 	return 0;
@@ -575,9 +688,8 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 			//{0x6c, 0x36},
 			//{0x6d, 0xf0},
 			{0x6e, 0x28},
-			{0x22, 0x00}, // Set initial gain to 0
+			{0x22, 0x00}, // Set initial AGC gain to 0
 			{0x23, 0xff}, // disable "white peaking" AGC correction
-			{0x0c, 0xdc}, // set input black level to 7.5 IRE (16-254 range), matching windows driver behavior (0xcc for full-range input)
 			{0x06, 0x80},
 			{0xff, 0xff}
 	};
@@ -586,7 +698,8 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 	mutex_init(&dev->v4l2_lock);
 
 	/* make our ctrl handler */
-	ret = v4l2_ctrl_handler_init(&dev->ctrl_handler, 5);
+	// IMPORTANT: the magic number here defines the number of controls
+	ret = v4l2_ctrl_handler_init(&dev->ctrl_handler, 8);
 	if (ret < 0)
 		return ret;
 
@@ -597,7 +710,7 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
 		V4L2_CID_BRIGHTNESS, 0, 255, 1, 128);
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
-		V4L2_CID_CONTRAST, 0, 255, 1, 128);
+		V4L2_CID_CONTRAST, 0, 255, 1, 105);
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
 		V4L2_CID_SATURATION, 0, 255, 1, 128);
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
@@ -608,8 +721,9 @@ int gvusb2_v4l2_register(struct gvusb2_vid *dev)
 		V4L2_CID_AUTOGAIN, 0, 1, 1, 1);
 	v4l2_ctrl_new_std(&dev->ctrl_handler, &gvusb2_ctrl_ops,
 		V4L2_CID_GAIN, 0, 255, 1, 0);
-	v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_vertical, NULL);
-	v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_horizontal, NULL);
+	dev->vertical_start = v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_vertical, NULL);
+	dev->horizontal_start = v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_horizontal, NULL);
+	dev->vbi_capture = v4l2_ctrl_new_custom(&dev->ctrl_handler, &gvusb2_ctrl_vbi, NULL);
 
 	if (dev->ctrl_handler.error) {
 		ret = dev->ctrl_handler.error;
@@ -683,6 +797,8 @@ int gvusb2_video_register(struct gvusb2_vid *dev)
 
 	/* set standard for device */
 	dev->standard = V4L2_STD_NTSC_M;
+	// Reset all controls again after setting standard to make sure cropping values get set
+	//v4l2_ctrl_handler_setup(&dev->ctrl_handler);
 
 	/* set standard for sub-devices */
 	v4l2_device_call_all(&dev->v4l2_dev, 0, video, s_std,

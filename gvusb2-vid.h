@@ -28,6 +28,13 @@
 #define GVUSB2_CID_BASE			(V4L2_CID_USER_BASE | 0xf000)
 #define GVUSB2_CID_VERTICAL_START	(GVUSB2_CID_BASE + 0)
 #define GVUSB2_CID_HORIZONTAL_START	(GVUSB2_CID_BASE + 1)
+#define GVUSB2_CID_VBI_CAPTURE	(GVUSB2_CID_BASE + 2)
+
+#define GVUSB2_PAL_STANDARD_HEIGHT	576
+#define GVUSB2_NTSC_STANDARD_HEIGHT	480
+#define GVUSB2_PAL_VBI_HEIGHT		616
+#define GVUSB2_NTSC_VBI_HEIGHT		516
+#define GVUSB2_STANDARD_WIDTH		720
 
 struct gvusb2_vb {
 	struct vb2_v4l2_buffer vb;
@@ -57,6 +64,9 @@ struct gvusb2_vid {
 	struct v4l2_subdev *sd_tw9910;
 	struct video_device vdev;
 	struct v4l2_ctrl_handler ctrl_handler;
+	struct v4l2_ctrl *horizontal_start;
+	struct v4l2_ctrl *vertical_start;
+	struct v4l2_ctrl *vbi_capture;
 	struct mutex v4l2_lock;
 	unsigned int input_num;
 	unsigned int sequence;
@@ -77,6 +87,8 @@ void gvusb2_vid_cancel_urbs(struct gvusb2_vid *dev);
 
 /* provided by gvusb2-v4l2.c */
 void get_resolution(struct gvusb2_vid *dev, int *width, int *height);
+void set_tw9910_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi);
+void set_stk1150_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi, int horizontal_start, int vertical_start);
 void gvusb2_vid_clear_queue(struct gvusb2_vid *dev);
 int gvusb2_vb2_setup(struct gvusb2_vid *dev);
 int gvusb2_v4l2_register(struct gvusb2_vid *dev);
