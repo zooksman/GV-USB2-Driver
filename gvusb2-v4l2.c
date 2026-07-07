@@ -68,7 +68,7 @@ void set_tw9910_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi) {
 			i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x02);
 			// VACTIVE (624)
 			i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, 0x12);
-			i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x36);
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x37);
 		} else {
 			dev_warn(&dev->intf->dev,
 					 "setting TW9910 PAL normal cropping.\n");
@@ -119,7 +119,7 @@ void set_stk1150_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi, int 
 		gvusb2_write_reg(&dev->gv, 0x0113, 0);
 		gvusb2_write_reg(&dev->gv, 0x0117, 0x01);
 		if (std & V4L2_STD_625_50) {
-			gvusb2_write_reg(&dev->gv, 0x0116, 0x36);
+			gvusb2_write_reg(&dev->gv, 0x0116, 0x37);
 		} else {
 			gvusb2_write_reg(&dev->gv, 0x0116, 0x05);
 		}

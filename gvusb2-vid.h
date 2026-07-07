@@ -88,6 +88,7 @@ void gvusb2_vid_cancel_urbs(struct gvusb2_vid *dev);
 /* provided by gvusb2-v4l2.c */
 void get_resolution(struct gvusb2_vid *dev, int *width, int *height);
 void set_tw9910_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi);
+void set_stk1150_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi, int horizontal_start, int vertical_start);
 void gvusb2_vid_clear_queue(struct gvusb2_vid *dev);
 int gvusb2_vb2_setup(struct gvusb2_vid *dev);
 int gvusb2_v4l2_register(struct gvusb2_vid *dev);
