@@ -73,10 +73,10 @@ void set_tw9910_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi) {
 			dev_warn(&dev->intf->dev,
 					 "setting TW9910 PAL normal cropping.\n");
 			// VDELAY
-			i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x16);
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x08, 0x17);
 			// VACTIVE (576)
 			i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, 0x12);
-			i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x21);
+			i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x22);
 		}
 	} else {
 		// Set input black level to 7.5 IRE for NTSC
@@ -545,9 +545,11 @@ static int gvusb2_vidioc_s_std(struct file *file, void *priv, v4l2_std_id std)
 	dev->standard = std;
 
 	// Set up cropping on both TW9910 and STK1150 chips based on standard
-	// We need to lock vertical start max if PAL
+	// We need to lock vertical start max to 3 if PAL
 	if (std & V4L2_STD_625_50)
-		v4l2_ctrl_modify_range(dev->vertical_start, 0, 2, 1, 2);
+		v4l2_ctrl_modify_range(dev->vertical_start, 1, 3, 1, 2);
+	else
+		v4l2_ctrl_modify_range(dev->vertical_start, 1, 4, 1, 2);
 
 	set_tw9910_cropping(dev, std, v4l2_ctrl_g_ctrl(dev->vbi_capture));
 	set_stk1150_cropping(dev, std, v4l2_ctrl_g_ctrl(dev->vbi_capture), v4l2_ctrl_g_ctrl(dev->horizontal_start), v4l2_ctrl_g_ctrl(dev->vertical_start));
