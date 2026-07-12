@@ -8,10 +8,12 @@ Installation
 
 Simply run ./install.sh to compile and install the driver. Make sure you have Linux kernel headers installed and a basic GCC build environment. Also make sure you have a modern version of ffmpeg.
 
+Note: the gvusb2-sound module requires alsa sound card index 7 to be open in this install script. If that index is already taken, edit the last command in the script to choose a different index. 
+
 Usage
 ====================
 
-To set the input on the GVUSB2: 
+To set the video source: 
 
 ```sudo v4l2-ctl --set-input 1``` for S-video input
 
@@ -41,24 +43,42 @@ Note: These commands assume that /dev/video0 points to the GVUSB2. If you are us
 Setting Device Controls
 ====================
 
+Enabling capture of VBI (for a total height of 516px-- the top 9 lines are not able to be captured):
+
+```sudo v4l2-ctl -c vbi_capture=1```
+
 Brightness (default 128):
 
 ```sudo v4l2-ctl -c brightness=X```
+
 Contrast (default 105):
 
 ```sudo v4l2-ctl -c contrast=X```
+
 Saturation (default 128):
 
 ```sudo v4l2-ctl -c saturation=X```
+
 Hue (NTSC only, default 128):
 
 ```sudo v4l2-ctl -c hue=X```
+
 Sharpness (Range 0-16, default 0):
 
 ```sudo v4l2-ctl -c sharpness=X```
-Vertical Start (increasing this value shifts the image upward, max 4, default 2 for NTSC and 1 for PAL):
+
+Vertical Start (increasing this value shifts the image upward, max 4, default 2):
 
 ```sudo v4l2-ctl -c vertical_start=X```
-Horizontal Start (increasing this value shifts the image leftward, max 4, default 0):
+
+Horizontal Start (increasing this value shifts the image leftward, max 4, default 4):
 
 ```sudo v4l2-ctl -c horizontal_start=X```
+
+Disable Automatic Gain Control (AGC):
+
+```sudo v4l2-ctl -c gain_automatic=0```
+
+Manual Gain Setting (only takes effect when AGC is disabled):
+
+```sudo v4l2-ctl -c gain=X```

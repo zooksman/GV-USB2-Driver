@@ -7,4 +7,4 @@ make clean && make && \
     sudo mv -vt /lib/modules/$(uname -r)/kernel/drivers/media/usb/gvusb2/ *.ko.zst && \
     sudo depmod $(uname -r) && \
     sudo modprobe -v gvusb2-video && \
-    sudo modprobe -v gvusb2-sound
+    sudo modprobe -v gvusb2-sound index=7
