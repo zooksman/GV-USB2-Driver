@@ -93,9 +93,6 @@ void set_tw9910_cropping(struct gvusb2_vid *dev, v4l2_std_id std, int vbi) {
 			// VACTIVE (524)
 			i2c_smbus_write_byte_data(&dev->i2c_client, 0x07, 0x12);
 			i2c_smbus_write_byte_data(&dev->i2c_client, 0x09, 0x05);
-
-			// NTSC656 bit which needs to be enabled for vbi to work
-			i2c_smbus_write_byte_data(&dev->i2c_client, 0x55, 0x10);
 		} else {
 			dev_warn(&dev->intf->dev,
 					 "setting TW9910 ntsc normal cropping.\n");
